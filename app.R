@@ -1,5 +1,5 @@
 # Jose Singer-Freeman
-# NC State | ST 558 | Final Project 
+# Final Project ST 558 
 
 
 library(shiny)
@@ -63,12 +63,12 @@ ui <- dashboardPage(
                                  ), #end box 1
           
                  box(h3("Filter by row"),
-                      numericInput("row_number_from", "From Row Number:", min = 1, max = nrow(heartData), value = 1),
+                     numericInput("row_number_from", "From Row Number:", min = 1, max = nrow(heartData), value = 1),
                      numericInput("row_number_to", "To Row Number:", min = 1, max = nrow(heartData), value = nrow(heartData)),
                      br()
                      
-                 ), #end box 2
-                
+                 )), #end box 2 and fulidRow
+                 fluidRow(
                   box(h3("Download the table below"),
                      # Download button
                      downloadButton("download_btn", "Download CSV"),
@@ -84,33 +84,112 @@ ui <- dashboardPage(
           
         ), #end of data tabItem 
         
+        # (3) Modeling  -  allows the user to choose parameter for data splitting and for  the 3 models
+        
         tabItem(tabName = "modeling",
-                
+               
+                # Tab Box containing tab panels
                 tabBox(
                   
                   title = "Modeling Page",
-                  # The id lets us use input$tabset1 on the server to find the current tab
+                  # The following id lets us use input$tabset1 on the server to find the current tabBox
                   id = "tabset1", width=12,
                   
+                 
                   tabPanel("Modeling Info", "First tab content"),
                   
                   tabPanel("Model Fitting", 
+                           fluidRow(
+                           column( width=6,  
+                           #Box to ask for  RF parameter
                            box(h3("Random Forest Parameter"),
-                               sliderInput("num_trees", "Select the number of trees:", min = 1, max = 10, value = 4, step=1),
+                               sliderInput("mtry", "Select number of variables randomly sampled as candidates at each split:", min = 1, max = 10, value = 4, step=1),
                                br()
-                               ), #end of box
-                           box(h3("Traning/Testing Split"),
-                               sliderInput("split", "Choose the proportion of data for training:", min =0.5 , max = 1, value = 0.7, step=0.1),
-                               br()),
-                          # Box to display the model summary
-                          box(title = "Model Summary", width = 8,
-                           verbatimTextOutput("rf_model_summary")
+                               ), #end of box 
+                           
+                           
+                           #Box to get number of trees parameter for bagged trees model 
+                           box(h3("Bagged Trees Parameter"),
+                               numericInput("ntrees", "Select number of trees:", min = 100, max =1000, value=500, step=100),
+                               br()
+                           ), #end of box 
+                           
+                           #Box to ask for training/test split parameter
+                            box(h3("Split training/testing"), 
+                             sliderInput("split", "Choose the proportion of data for training:", min =0.5 , max = 0.9, value = 0.7, step=0.1),
+                            )), #end box and column
+                          
+                           column(width=4,
+                           
+                           box(h3("Predictor Choice and Traning/Testing Split"),
                                
-                           )), #end of box and model fitting tabPanel
+                               checkboxGroupInput("predictors", "Select Predictors for models:", choices = setdiff(colnames(heartData), "DEATH_EVENT"),
+                                           selected=setdiff(colnames(heartData), "DEATH_EVENT")),
+                                                              br()
+                               ))), #end of box and column and fluidrow
+                           
+                          
+                           
+                           #Box for button to run the models
+                          fluidRow(
+                            column(width=2,
+                          box(actionButton("run_models", "Run Models"),
+                               br()
+                               )),#end of box and column
+                           ),  #end of fluidrow
+                           
+                           column(width=4,
+                          fluidRow(
+                          # Box to display the RF model accuracy for training and testing
+                          box(title="Random Forest Accuracy", 
+                                      textOutput("rf_training_accuracy"),
+                                      textOutput("rf_testing_accuracy")
+                                  )),#end of box and row
+                          fluidRow(        
+                          # Box to display the RF model summary
+                          box(title = "Random Forest Model Variable Importance", 
+                          verbatimTextOutput("rf_model_summary"),
+                          br()
+                          ))), #end of box, row and column
+                          
+                          
+                          
+                          column(width=4,
+                                 fluidRow(
+                          # Box to display the logistic regression model accuracy for training and testing
+                          box(title="Logistic Regression Accuracy", 
+                          textOutput("lr_training_accuracy"),
+                          textOutput("lr_testing_accuracy")
+                          )),
+                          
+                          # Box to display the logistic regression model summary
+                          fluidRow(
+                          box(title = "Logistic Regression Model Summary", 
+                              verbatimTextOutput("lr_model_summary")     
+                           ))), #end of box and column
+                          
+                          
+                          column(width=4,
+                          
+                          # Box to display the bagged trees model accuracy for training and testing
+                          fluidRow(
+                          box(title="Bagged Trees  Accuracy", 
+                              textOutput("bt_training_accuracy"),
+                              textOutput("bt_testing_accuracy"))),
+                          fluidRow(    
+                          box(title = "Bagged Trees Model Variable Importance", 
+                              verbatimTextOutput("bt_model_summary")
+                              ))     
+                          
+                          
+                          ) #end of column 
+                          ), #end of model fitting tabPanel and fluidrow
+                  
+                  
                   tabPanel("Prediction", "Tab content 3")
-                
+                  
                   ) #end of tabBox
-        
+              
         ) #end of modeling tabItem 
         
     ) #end tabItems
@@ -163,22 +242,38 @@ server <- function(input, output) {
 )
     
     # --- (3) Modeling
-    
-    # Create an index vector for stratified sampling
-    set.seed(101)
-    index <- createDataPartition(heartData$DEATH_EVENT, p = 0.8, list = FALSE)
-    
-    # Split the data into 80% and 20% samples
-    modeling_data <- heartData[index, ]
-    test_data <- heartData[-index, ]
-    
-    modeling_data$DEATH_EVENT<-factor(modeling_data$DEATH_EVENT, levels=c(0,1), labels=c("ND", "D"))
-    test_data$DEATH_EVENT<-factor(test_data$DEATH_EVENT, levels=c(0,1), labels=c("ND", "D"))
+
+    # Reactive expression to store the selected predictors and subset the data
+     data_subset <- reactive({
+       selected_predictors <- input$predictors
+       # Subset the data to selected predictors for both models
+       data_subset <- heartData[, c("DEATH_EVENT", selected_predictors)]
+       return(data_subset)
+     })
     
     
-    #random forest
-    rf_fit <- reactive({
-      num_trees <- as.integer(input$num_trees)
+    # Reactive expression to split data into training and testing sets
+     data_splits <- reactive({
+      data_sub <- data_subset()
+      # Set the seed for reproducibility
+      set.seed(123)
+      # Create data partition for 80% training and 20% testing
+      index <- createDataPartition(data_sub$DEATH_EVENT, p = input$split, list = FALSE)
+      training_data <- data_sub[index, ]
+      testing_data <- data_sub[-index, ]
+      
+      training_data$DEATH_EVENT<-factor(training_data$DEATH_EVENT, levels=c(0,1), labels=c("ND", "D"))
+      testing_data$DEATH_EVENT<-factor(testing_data$DEATH_EVENT, levels=c(0,1), labels=c("ND", "D"))
+      return(list(training = training_data, testing = testing_data))
+    })
+    
+ 
+    
+    
+    ## Function to fit random forest model and return variable importance plot
+      
+      rf_model_fit <- eventReactive(input$run_models,{
+      mtry1 <- as.integer(input$mtry)
       
       #control function for cv
       mycontrol<-trainControl(method = "cv", 
@@ -187,7 +282,6 @@ server <- function(input, output) {
                               savePredictions = 'all', 
                               classProbs = TRUE
                             )
-      
       #model formula 
       Formula<-as.formula("DEATH_EVENT~.")
       
@@ -197,17 +291,141 @@ server <- function(input, output) {
       # Fit the random forest model
       
       rfFit <- train(form=Formula,
-                     data=modeling_data,  #CHANGE THIS XXX
+                     data=data_splits()$training,  
                      method="rf",
                      trControl=mycontrol,
-                     ntree=num_trees)
+                     ntree=mtry1,
+                     na.action = na.omit)
       
-      return(summary(rfFit$finalModel))
+      return(list(summary=varImp(rfFit$finalModel), model=rfFit))
     })  #end reactive
-
+     
+     
+     ## Function to fit Logistic Regression model and return summary
+     
+     lr_model_fit <- eventReactive(input$run_models,{
+       
+       #control function for cv
+       mycontrol<-trainControl(method = "cv", 
+                               number = 10, 
+                               summaryFunction = twoClassSummary,
+                               savePredictions = 'all', 
+                               classProbs = TRUE
+       )
+       #model formula 
+       Formula<-as.formula("DEATH_EVENT~.")
+       
+       #set seed for reproducibility
+       set.seed(101)
+       
+       # Fit the logistic regression model
+       
+       logFit <- train(form=Formula,
+                      data=data_splits()$training,  
+                      method="glm",
+                      trControl=mycontrol,
+                      family="binomial",
+                      na.action = na.omit)
+       
+       return(list(summary=summary(logFit),model=logFit))
+     })  #end reactive
+      
+     
+     ## Function to fit Bagged Trees model and return summary
+     
+     bt_model_fit <- eventReactive(input$run_models,{
+       #get parameter
+       ntrees <- as.integer(input$ntrees)
+       
+       #control function for cv
+       mycontrol<-trainControl(method = "cv", 
+                               number = 10, 
+                               summaryFunction = twoClassSummary,
+                               savePredictions = 'all', 
+                               classProbs = TRUE
+       )
+       #model formula 
+       Formula<-as.formula("DEATH_EVENT~.")
+       
+       #set seed for reproducibility
+       set.seed(101)
+       
+       # Fit the bagged tree model
+       
+       btFit <- train(form=Formula,
+                       data=data_splits()$training,  
+                       method="treebag",
+                       trControl=mycontrol,
+                       ntrees=ntrees,
+                       na.action = na.omit)
+       
+       return(list(summary=varImp(btFit$finalModel),model=btFit))
+     })  #end reactive
+     
+     
+     # Calculate and render the accuracy of the Random Forest  training set
+     output$rf_training_accuracy <- renderText({
+       predictions <- predict(rf_model_fit()$model, newdata = data_splits()$training)
+       accuracy <- confusionMatrix(predictions, data_splits()$training$DEATH_EVENT)$overall["Accuracy"]
+       paste("Training Data Accuracy = ", round(accuracy, 3))
+     }) 
+     
+     
+     # Calculate and render the accuracy of the Random Forest  testing set
+     output$rf_testing_accuracy <- renderText({
+       predictions <- predict(rf_model_fit()$model, newdata = data_splits()$testing)
+       accuracy <- confusionMatrix(predictions, data_splits()$testing$DEATH_EVENT)$overall["Accuracy"]
+       paste("Testing Data Accuracy = ", round(accuracy, 3))
+     })
+     
+     
+     # Calculate and render the accuracy of the logistic regression training set
+     output$lr_training_accuracy <- renderText({
+       predictions <- predict(lr_model_fit()$model, newdata = data_splits()$training)
+       accuracy <- confusionMatrix(predictions, data_splits()$training$DEATH_EVENT)$overall["Accuracy"]
+       paste("Training Data Accuracy = ", round(accuracy, 3))
+     }) 
+     
+     
+     # Calculate and render the accuracy of the logistic regression testing set
+     output$lr_testing_accuracy <- renderText({
+       predictions <- predict(lr_model_fit()$model, newdata = data_splits()$testing)
+       accuracy <- confusionMatrix(predictions, data_splits()$testing$DEATH_EVENT)$overall["Accuracy"]
+       paste("Testing Data Accuracy = ", round(accuracy, 3))
+     })
+     
+     # Calculate and render the accuracy of the Bagged Trees  training set
+     output$bt_training_accuracy <- renderText({
+       predictions <- predict(bt_model_fit()$model, newdata = data_splits()$training)
+       accuracy <- confusionMatrix(predictions, data_splits()$training$DEATH_EVENT)$overall["Accuracy"]
+       paste("Training Data Accuracy = ", round(accuracy, 3))
+     }) 
+     
+     
+     # Calculate and render the accuracy of the  Bagged Trees  testing set
+     output$bt_testing_accuracy <- renderText({
+       predictions <- predict(bt_model_fit()$model, newdata = data_splits()$testing)
+       accuracy <- confusionMatrix(predictions, data_splits()$testing$DEATH_EVENT)$overall["Accuracy"]
+       paste("Testing Data Accuracy = ", round(accuracy, 3))
+     })
+     
+     
+    # Render the random forest model summary as output
     output$rf_model_summary <- renderPrint({
-      rf_fit()
-    }) #end output$rf_model_summary
+      rf_model_fit()$summary
+    }) #end render rf model
+    
+    # Render the logistic regression model summary as output
+    output$lr_model_summary <- renderPrint({
+      lr_model_fit()$summary
+    })
+    
+    
+    # Render the Bagged Trees model summary as output
+    output$bt_model_summary <- renderPrint({
+      bt_model_fit()$summary
+    }) #end render rf model
+    
 } #end server
 
 # Run the application 
