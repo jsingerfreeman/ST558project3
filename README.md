@@ -21,17 +21,15 @@ shinyWidgets
 
 
  ###  Code to Install the Packages (if not already installed)
- ```packages_to_install <- c("caret", "shiny", "butcher") # List of packages to be installed
+ ```
+packages<-c("shiny", "shinydashboard", "tidyverse","knitr","tidyr","ggplot2","caret","DT","shinyWidgets") # List of packages to be installed
  
- 
- install_if_missing <- function(package_name) {# Function to check and install packages if necessary
+ install_if_missing <- function(package_name) {#Function to check and install packages
     if (!requireNamespace(package_name, quietly = TRUE)) {
      install.packages(package_name)
    }
  }
-
- 
- for (package in packages_to_install) {# Loop through the list and install missing packages
+ for (package in packages) {# Loop through the list and install missing packages
    install_if_missing(package)
  }
  ```
