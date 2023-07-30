@@ -13,9 +13,6 @@ library(DT)
 library(shinyWidgets)
 
 
-#torun original by Kyle Garrison:  runGitHub("ST-558-Final-Project", "kylebeard56", ref = "master")
-
-
 # Data source is given here:
 # https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data
 #citation to article for source of data
@@ -140,7 +137,7 @@ ui <- dashboardPage(
              </p>"),
                            withMathJax(),
                            helpText('$$p(X)=\\frac{e^{\\beta_X}}{1-e^{\\\\beta_1X}}$$'), 
-                           HTML("<p> where X is the design matrix and beta a vector of coefficients. 
+                           HTML("<p> where X is the design matrix and beta a vector of regression coefficients. 
                            </p>"),
                            
                            h5(HTML("<b>Benefits:</b>")),
