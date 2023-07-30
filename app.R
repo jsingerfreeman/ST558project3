@@ -8,14 +8,7 @@ library(tidyverse)
 library(knitr)
 library(tidyr)
 library(ggplot2)
-library(kableExtra)
-library(ggiraph)
-library(ggiraphExtra)
-library(rgl)
 library(caret)
-library(tree)
-library(randomForest)
-library(gbm)
 library(DT)
 library(shinyWidgets)
 
@@ -143,9 +136,15 @@ ui <- dashboardPage(
                            HTML("<p>
              Logistic Regression models the relationship between a binary response variable and predictor variables by estimating 
              the probabilities of the response variables' outcomes. The model uses the logistic function to 
-             transform predictors into probabilities between 0 and 1.
+             transform predictors into probabilities between 0 and 1. </p><p> The logistic function is shown below:
              </p>"),
+                           withMathJax(),
+                           helpText('$$p(X)=\\frac{e^{\\beta_X}}{1-e^{\\\\beta_1X}}$$'), 
+                           HTML("<p> where X is the design matrix and beta a vector of coefficients. 
+                           </p>"),
+                           
                            h5(HTML("<b>Benefits:</b>")),
+                           
                            HTML("<ul>
               <li>Interpretability: Logistic regression is interpretable (although odds ratios can confuse some.</li>
               <li>Fast Training: The model efficiently handles large datasets.</li>
