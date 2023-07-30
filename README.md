@@ -4,8 +4,8 @@
 
 
 ### Background
-This app explores a dataset of medical records of 299 heart failure patients and predict the probability of a death event occuring using three types of machine learning modeling techniques.  
-The dataset was downloaded from <a href="https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data" target="_blank">Heart Failure Clinical Data on Kaggle</a>.
+<p>This app allows the user to explore a dataset of medical records of 299 heart failure patients.  The user may  predict the probability of a death event occuring using three types of machine learning supervised classification models.  </p>
+<p>The dataset was downloaded from <a href="https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data" target="_blank">Heart Failure Clinical Data on Kaggle</a>.</p>
                       
 
 ###  List of Packages Needed for the App
