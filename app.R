@@ -48,8 +48,12 @@ ui <- dashboardPage(
         tabItems(
           # (1) About - Description of the app
           tabItem(tabName = "about",
+                  tags$img (src = "heart.png", height=50, width=50, align="right"),
                   titlePanel("About"),
+                  
                   br(),
+                  
+                  
                   h4(HTML("<span style='color:#00205B'><b>Purpose of this App</b>")),
                   
                   HTML("<ul>
@@ -57,6 +61,7 @@ ui <- dashboardPage(
                        <li>use three machine learning models to predict the occurence of a death </li>
                   </ul>"),
                   br(),
+                  
                   h4(HTML("<span style='color:#00205B'><b>The Data</b>")),
                   HTML("<p> The  dataset in this app consists of the medical records of 299 heart failure patients collected at two hospitals in Pakistan in 2015.</p>", 
                        "<p> The  dataset contains 9 features, mostly clinical data.</p>",
